@@ -13,31 +13,23 @@ export default function Reports() {
   const [myTotal, setMyTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   
-  // Admin View State: Default to 'all' (History)
-  const [adminView, setAdminView] = useState('all'); 
-  const [tabCounts, setTabCounts] = useState({ pending: 0, history: 0 });
-  const [refreshKey, setRefreshKey] = useState(0); // Triggers updates
-
   // User Details
   const role = localStorage.getItem("userRole");
   const email = localStorage.getItem("userEmail");
   const userName = localStorage.getItem("userName");
 
-  // --- 1. FETCH TABLE DATA ---
+  // --- 1. FETCH TABLE DATA (History Only) ---
   useEffect(() => {
     const fetchData = async () => {
       try {
         setLoading(true);
         if (role === 'admin') {
-          if (adminView === 'pending') {
-            const res = await axios.get(`${API_BASE_URL}/api/donations/pending`);
-            setData(res.data);
-          } else {
-            const res = await axios.get(`${API_BASE_URL}/api/donations/processed`);
-            setData(res.data);
-          }
+          // ADMIN: Strictly fetch PROCESSED (Approved/Rejected) history
+          // This fixes the "No Info" bug by calling the right endpoint directly
+          const res = await axios.get(`${API_BASE_URL}/api/donations/all`);
+          setData(res.data);
         } else {
-          // Donor Logic
+          // DONOR: Fetch own history
           const res = await axios.get(`${API_BASE_URL}/api/donations/my-history/${email}`);
           setData(res.data.history || []);
           setMyTotal(res.data.totalDonated || 0);
@@ -49,7 +41,7 @@ export default function Reports() {
       }
     };
     fetchData();
-  }, [adminView, refreshKey, role, email]);
+  }, [role, email]);
 
   // --- 2. FETCH GRAPH DATA (Visuals) ---
   useEffect(() => {
@@ -64,28 +56,9 @@ export default function Reports() {
       }
     };
     fetchGraph();
-  }, [refreshKey, role, email]);
+  }, [role, email]);
 
-  // --- 3. ADMIN COUNTS (Background Fetch) ---
-  useEffect(() => {
-    if (role === 'admin') {
-      const fetchCounts = async () => {
-        try {
-          const [pendingRes, historyRes] = await Promise.all([
-            axios.get(`${API_BASE_URL}/api/donations/pending`),
-            axios.get(`${API_BASE_URL}/api/donations/processed`)
-          ]);
-          setTabCounts({
-            pending: pendingRes.data.length,
-            history: historyRes.data.length
-          });
-        } catch (error) { console.error(error); }
-      };
-      fetchCounts();
-    }
-  }, [refreshKey, role]);
-
-  // --- 4. PDF GENERATOR ---
+  // --- 3. PDF GENERATOR ---
   const generatePDF = () => {
     const doc = new jsPDF();
     doc.setFontSize(20);
@@ -113,7 +86,6 @@ export default function Reports() {
       headStyles: { fillColor: [59, 130, 246] }
     });
     
-    // Total Footer
     if(role !== 'admin') {
       const finalY = (doc.lastAutoTable && doc.lastAutoTable.finalY) || 50;
       doc.setFontSize(14);
@@ -122,17 +94,6 @@ export default function Reports() {
     }
 
     doc.save(`Report_${userName}.pdf`);
-  };
-
-  // --- 5. ADMIN ACTIONS ---
-  const updateStatus = async (id, status) => {
-    if(!window.confirm(`Mark this donation as ${status}?`)) return;
-    try {
-      await axios.put(`${API_BASE_URL}/api/donations/${id}/status`, { status });
-      setRefreshKey(prev => prev + 1); // Refresh UI immediately
-    } catch (error) {
-      alert("Failed to update status.");
-    }
   };
 
   return (
@@ -144,37 +105,17 @@ export default function Reports() {
             {role === 'admin' ? 'Administrative Reports' : 'My Giving Portfolio'}
           </h1>
           <p className="text-slate-500 text-sm mt-1">
-            {role === 'admin' ? 'Manage and track all donation activities.' : 'Track your impact and download statements.'}
+            {role === 'admin' ? 'View verified donation history and trends.' : 'Track your impact and download statements.'}
           </p>
         </div>
         
-        {role !== 'admin' && (
-          <button 
-            onClick={generatePDF}
-            className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-white px-5 py-2.5 rounded-lg shadow-lg transition-all hover:-translate-y-1"
-          >
-            <span className="text-lg">📄</span> Download Statement
-          </button>
-        )}
+        <button 
+          onClick={generatePDF}
+          className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-white px-5 py-2.5 rounded-lg shadow-lg transition-all hover:-translate-y-1"
+        >
+          <span className="text-lg">📄</span> Download Statement
+        </button>
       </div>
-
-      {/* --- ADMIN TABS --- */}
-      {role === 'admin' && (
-        <div className="bg-slate-100 p-1 rounded-lg inline-flex shadow-inner">
-          <button 
-            onClick={() => setAdminView('all')}
-            className={`px-6 py-2 rounded-md text-sm font-bold transition-all ${adminView === 'all' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
-          >
-            📋 All History <span className="ml-2 bg-slate-200 px-2 py-0.5 rounded-full text-xs">{tabCounts.history}</span>
-          </button>
-          <button 
-            onClick={() => setAdminView('pending')}
-            className={`px-6 py-2 rounded-md text-sm font-bold transition-all ${adminView === 'pending' ? 'bg-white text-rose-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
-          >
-            ⚠️ Pending Requests <span className="ml-2 bg-rose-100 text-rose-600 px-2 py-0.5 rounded-full text-xs">{tabCounts.pending}</span>
-          </button>
-        </div>
-      )}
 
       {/* --- VISUALIZATION SECTION (Chart & Summary) --- */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -223,13 +164,11 @@ export default function Reports() {
         </div>
       </div>
 
-      {/* --- DATA TABLE --- */}
+      {/* --- DATA TABLE (HISTORY ONLY) --- */}
       <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
         <div className="p-5 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
           <h3 className="font-bold text-slate-700">
-            {role === 'admin' 
-              ? (adminView === 'pending' ? 'Requests Awaiting Action' : 'Full Transaction Log') 
-              : 'Detailed Transaction History'}
+            Full Transaction Log
           </h3>
           <span className="text-xs font-semibold text-slate-500 bg-white px-3 py-1 border rounded-full">
             {data.length} Records
@@ -245,14 +184,13 @@ export default function Reports() {
                 <th className="p-4">Donor</th>
                 <th className="p-4">Amount</th>
                 <th className="p-4">Status</th>
-                {role === 'admin' && adminView === 'pending' && <th className="p-4">Actions</th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {loading ? (
-                <tr><td colSpan="6" className="p-8 text-center text-slate-400">Loading data...</td></tr>
+                <tr><td colSpan="5" className="p-8 text-center text-slate-400">Loading data...</td></tr>
               ) : data.length === 0 ? (
-                <tr><td colSpan="6" className="p-12 text-center text-slate-400 italic">No records found for this view.</td></tr>
+                <tr><td colSpan="5" className="p-12 text-center text-slate-400 italic">No approved records found.</td></tr>
               ) : (
                 data.map((d) => (
                   <tr key={d._id} className="hover:bg-slate-50 transition-colors">
@@ -271,28 +209,9 @@ export default function Reports() {
                         'bg-amber-100 text-amber-700'
                       }`}>
                         {d.status === 'approved' && <span className="mr-1">●</span>}
-                        {d.status === 'pending' && <span className="mr-1 animate-pulse">●</span>}
                         {d.status}
                       </span>
                     </td>
-                    
-                    {/* Admin Buttons (Only in Pending View) */}
-                    {role === 'admin' && adminView === 'pending' && (
-                      <td className="p-4 flex gap-2">
-                        <button 
-                          onClick={() => updateStatus(d._id, 'approved')} 
-                          className="bg-emerald-500 hover:bg-emerald-600 text-white px-3 py-1.5 rounded-md text-xs font-bold shadow-sm transition-all"
-                        >
-                          Approve
-                        </button>
-                        <button 
-                          onClick={() => updateStatus(d._id, 'rejected')} 
-                          className="bg-white border border-rose-200 text-rose-600 hover:bg-rose-50 px-3 py-1.5 rounded-md text-xs font-bold transition-all"
-                        >
-                          Reject
-                        </button>
-                      </td>
-                    )}
                   </tr>
                 ))
               )}
