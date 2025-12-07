@@ -38,6 +38,20 @@ export default function Dashboard() {
   };
 
   useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        // This calls: https://donation-management-59d6.onrender.com/api/donations/stats
+        const res = await axios.get(`${API_BASE_URL}/api/donations/stats`);
+        
+        console.log("Stats received:", res.data); // Debugging check
+        setStats(res.data);
+        setLoading(false);
+      } catch (error) {
+        console.error("Error fetching stats:", error);
+        setLoading(false);
+      }
+    };
+
     fetchStats();
   }, []);
 
@@ -46,7 +60,7 @@ export default function Dashboard() {
     e.preventDefault();
     try {
       // Send data to backend
-      await axios.post(API_URL, formData);
+      await axios.post(`${API_BASE_URL}`, formData);
       
       // Feedback to user
       alert("Success! Your donation has been submitted for Admin Approval.");
@@ -70,14 +84,15 @@ export default function Dashboard() {
         <button className="md:hidden bg-slate-900 text-white px-4 py-2 rounded">Menu</button>
       </header>
 
-      {/* --- TOP SECTION: STATS & FORM --- */}
+      {/* --- TOP SECTION: STATS --- */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         
         {/* Card 1: Total Raised */}
         <div className="bg-white p-6 rounded-lg shadow-sm border-l-4 border-pink-500 flex flex-col justify-center">
           <p className="text-gray-500 font-medium uppercase text-sm tracking-wider">Total Raised</p>
           <h2 className="text-5xl font-bold text-slate-800 mt-2">
-            ${stats.totalAmount.toLocaleString()}
+            {/* Display Loading... or the Money */}
+            {loading ? "..." : `$${stats.totalAmount.toLocaleString()}`}
           </h2>
           <p className="text-xs text-gray-400 mt-2">Verified & Approved Donations</p>
         </div>
@@ -86,7 +101,8 @@ export default function Dashboard() {
         <div className="bg-white p-6 rounded-lg shadow-sm border-l-4 border-blue-500 flex flex-col justify-center">
           <p className="text-gray-500 font-medium uppercase text-sm tracking-wider">Total Donors</p>
           <h2 className="text-5xl font-bold text-slate-800 mt-2">
-            {stats.totalDonations}
+            {/* Display Loading... or the Count */}
+            {loading ? "..." : stats.totalDonations}
           </h2>
           <p className="text-xs text-gray-400 mt-2">Community Members</p>
         </div>

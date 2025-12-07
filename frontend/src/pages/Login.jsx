@@ -12,7 +12,7 @@ export default function Login() {
     e.preventDefault();
     try {
       // Send credentials to backend
-      const res = await axios.post("${API_BASE_URL}/api/login", { email, password });
+      const res = await axios.post(`${API_BASE_URL}/api/login`, { email, password });
       
       if (res.data.success) {
         // Save user details to LocalStorage

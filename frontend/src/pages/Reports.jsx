@@ -20,7 +20,7 @@ export default function Donors() {
       setLoading(true);
       if (role === 'admin') {
         // ADMIN: Get all PENDING donations
-        const res = await axios.get("${API_BASE_URL}/api/donations/pending");
+        const res = await axios.get(`${API_BASE_URL}/api/donations/pending`);
         setData(res.data);
       } else {
         // DONOR: Get THEIR OWN history

@@ -8,48 +8,74 @@ export default function Donors() {
   const [data, setData] = useState([]); 
   const [myTotal, setMyTotal] = useState(0);
   const [loading, setLoading] = useState(true);
-  
+
   // Admin View State: 'pending' or 'all'
-  const [adminView, setAdminView] = useState('pending'); 
+  const [adminView, setAdminView] = useState('all'); 
+
+  const [tabCounts, setTabCounts] = useState({ pending: 0, history: 0 });
   
+  const [refreshKey, setRefreshKey] = useState(0);
+
   const role = localStorage.getItem("userRole");
   const email = localStorage.getItem("userEmail");
   const userName = localStorage.getItem("userName");
 
-  // --- FETCH DATA ---
-  const fetchData = async () => {
-    try {
-      setLoading(true);
-      
-      if (role === 'admin') {
-        // ADMIN: Toggle between Pending and All
-        if (adminView === 'pending') {
-          const res = await axios.get("${API_BASE_URL}/api/donations/pending");
-          setData(res.data);
-        } else {
-          // View ALL history
-          const res = await axios.get("${API_BASE_URL}/api/donations/all");
-          setData(res.data);
-        }
-      } else {
-        // DONOR: Always get own history
-        const res = await axios.get(`${API_BASE_URL}/api/donations/my-history/${email}`);
-        setData(res.data.history || []);
-        setMyTotal(res.data.totalDonated || 0);
-      }
-      setLoading(false);
-    } catch (error) {
-      console.error("Error fetching data:", error);
-      setLoading(false);
-    }
-  };
-
-  // Re-fetch when view changes (for admin)
+// --- FETCH TABLE DATA ---
   useEffect(() => {
-    fetchData();
-  }, [adminView]);
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        
+        if (role === 'admin') {
+          if (adminView === 'pending') {
+            // Get STRICT Pending list
+            const res = await axios.get(`${API_BASE_URL}/api/donations/pending`);
+            setData(res.data);
+          } else {
+            // Get STRICT History list (Approved/Rejected)
+            const res = await axios.get(`${API_BASE_URL}/api/donations/all`);
+            setData(res.data);
+          }
+        } else {
+          // DONOR LOGIC
+          const res = await axios.get(`${API_BASE_URL}/api/donations/my-history/${email}`);
+          setData(res.data.history || []);
+          setMyTotal(res.data.totalDonated || 0);
+        }
+      } catch (error) {
+        console.error("Error fetching data:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  // --- ROBUST PDF GENERATION ---
+    fetchData();
+  }, [adminView, refreshKey, role, email]); // Re-run when view changes or refreshKey updates
+
+  // --- FETCH BUTTON COUNTS (Background) ---
+  useEffect(() => {
+    if (role === 'admin') {
+      const fetchCounts = async () => {
+        try {
+          const [pendingRes, historyRes] = await Promise.all([
+            axios.get(`${API_BASE_URL}/api/donations/pending`),
+            axios.get(`${API_BASE_URL}/api/donations/all`)
+          ]);
+          
+          setTabCounts({
+            pending: pendingRes.data.length,
+            history: historyRes.data.length
+          });
+        } catch (error) {
+          console.error("Error fetching counts:", error);
+        }
+      };
+      fetchCounts();
+    }
+  }, [refreshKey, role]);
+
+
+  // --- PDF GENERATION ---
   const generatePDF = () => {
     try {
       // Initialize jsPDF
@@ -140,11 +166,11 @@ export default function Donors() {
 
   // --- UPDATE STATUS ---
   const updateStatus = async (id, status) => {
-    if(!window.confirm(`Are you sure you want to mark this as ${status}?`)) return;
+    if(!window.confirm(`Mark this as ${status}?`)) return;
     try {
       await axios.put(`${API_BASE_URL}/api/donations/${id}/status`, { status });
-      // Refresh the list immediately to see the change
-      fetchData(); 
+      // Force refresh of both Table and Counts
+      setRefreshKey(prev => prev + 1);
     } catch (err) {
       alert("Error updating status");
     }
@@ -168,16 +194,17 @@ export default function Donors() {
       {role === 'admin' && (
         <div className="flex gap-4 mb-6">
           <button 
-            onClick={() => setAdminView('pending')}
-            className={`px-4 py-2 rounded font-bold transition ${adminView === 'pending' ? 'bg-pink-600 text-white shadow-lg' : 'bg-white text-gray-600 hover:bg-gray-100'}`}
-          >
-            ⚠️ Pending ({data.length})
-          </button>
-          <button 
             onClick={() => setAdminView('all')}
-            className={`px-4 py-2 rounded font-bold transition ${adminView === 'all' ? 'bg-blue-600 text-white shadow-lg' : 'bg-white text-gray-600 hover:bg-gray-100'}`}
+            className={`px-6 py-2 rounded font-bold transition shadow-sm ${adminView === 'all' ? 'bg-blue-600 text-white ring-2 ring-blue-300' : 'bg-white text-gray-600 hover:bg-gray-100'}`}
           >
-            📋 All History
+            📋 All History ({tabCounts.history})
+          </button>
+          
+          <button 
+            onClick={() => setAdminView('pending')}
+            className={`px-6 py-2 rounded font-bold transition shadow-sm ${adminView === 'pending' ? 'bg-pink-600 text-white ring-2 ring-pink-300' : 'bg-white text-gray-600 hover:bg-gray-100'}`}
+          >
+            ⚠️ Pending ({tabCounts.pending})
           </button>
         </div>
       )}
