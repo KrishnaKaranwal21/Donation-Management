@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import axios from "axios";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
+import { API_BASE_URL } from "../api";
 
 export default function Donors() {
   const [data, setData] = useState([]); 
