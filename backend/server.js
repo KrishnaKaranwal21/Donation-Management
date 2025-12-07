@@ -72,6 +72,56 @@ app.get('/api/donations/my-history/:email', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// --- GET GRAPH DATA (Last 6 Months) ---
+app.get('/api/graph-data', async (req, res) => {
+  const { role, email } = req.query;
+
+  try {
+    // 1. Base Filter: Only Approved Donations
+    let matchCondition = { status: { $regex: /^approved$/i } };
+
+    // 2. If NOT Admin, filter by Email
+    if (role !== 'admin') {
+      matchCondition.email = email;
+    }
+
+    // 3. Get Data
+    const donations = await Donation.find(matchCondition);
+
+    // 4. Process Data into "Month Name" : "Total Amount"
+    const monthlyMap = {};
+    const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+    // Initialize last 6 months with 0 so the graph isn't empty
+    const today = new Date();
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
+      const label = monthNames[d.getMonth()];
+      monthlyMap[label] = 0;
+    }
+
+    // Sum up the actual money
+    donations.forEach(d => {
+      const date = new Date(d.date);
+      const label = monthNames[date.getMonth()];
+      // Only add if this month is in our map (last 6 months)
+      if (monthlyMap[label] !== undefined) {
+        monthlyMap[label] += d.amount;
+      }
+    });
+
+    // Convert to Array for Recharts
+    const graphData = Object.keys(monthlyMap).map(label => ({
+      name: label,
+      amount: monthlyMap[label]
+    }));
+
+    res.json(graphData);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // 5. POST New Donation
 app.post('/api/donations', async (req, res) => {
   try {
