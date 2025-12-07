@@ -24,16 +24,16 @@ export default function Donors() {
       if (role === 'admin') {
         // ADMIN: Toggle between Pending and All
         if (adminView === 'pending') {
-          const res = await axios.get("http://localhost:5000/api/donations/pending");
+          const res = await axios.get("${API_BASE_URL}/api/donations/pending");
           setData(res.data);
         } else {
           // View ALL history
-          const res = await axios.get("http://localhost:5000/api/donations/all");
+          const res = await axios.get("${API_BASE_URL}/api/donations/all");
           setData(res.data);
         }
       } else {
         // DONOR: Always get own history
-        const res = await axios.get(`http://localhost:5000/api/donations/my-history/${email}`);
+        const res = await axios.get(`${API_BASE_URL}/api/donations/my-history/${email}`);
         setData(res.data.history || []);
         setMyTotal(res.data.totalDonated || 0);
       }
@@ -142,7 +142,7 @@ export default function Donors() {
   const updateStatus = async (id, status) => {
     if(!window.confirm(`Are you sure you want to mark this as ${status}?`)) return;
     try {
-      await axios.put(`http://localhost:5000/api/donations/${id}/status`, { status });
+      await axios.put(`${API_BASE_URL}/api/donations/${id}/status`, { status });
       // Refresh the list immediately to see the change
       fetchData(); 
     } catch (err) {

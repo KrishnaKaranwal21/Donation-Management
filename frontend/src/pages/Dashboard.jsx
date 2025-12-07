@@ -2,9 +2,6 @@ import { useState, useEffect } from "react";
 import axios from "axios";
 import { API_BASE_URL } from "../api";
 
-// Configuration for the backend URL
-const API_URL = "http://localhost:5000/api/donations";
-
 export default function Dashboard() {
   // State for Dashboard Stats (Global Approved Data)
   const [stats, setStats] = useState({ 

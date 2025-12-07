@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import axios from "axios";
 import jsPDF from "jspdf";
 import "jspdf-autotable";
+import { API_BASE_URL } from "../api";
 
 export default function Donors() {
   const [data, setData] = useState([]); 
@@ -19,11 +20,11 @@ export default function Donors() {
       setLoading(true);
       if (role === 'admin') {
         // ADMIN: Get all PENDING donations
-        const res = await axios.get("http://localhost:5000/api/donations/pending");
+        const res = await axios.get("${API_BASE_URL}/api/donations/pending");
         setData(res.data);
       } else {
         // DONOR: Get THEIR OWN history
-        const res = await axios.get(`http://localhost:5000/api/donations/my-history/${email}`);
+        const res = await axios.get(`${API_BASE_URL}/api/donations/my-history/${email}`);
         setData(res.data.history);
         setMyTotal(res.data.totalDonated);
       }
@@ -83,7 +84,7 @@ export default function Donors() {
   const updateStatus = async (id, status) => {
     try {
       if(!window.confirm(`Mark as ${status}?`)) return;
-      await axios.put(`http://localhost:5000/api/donations/${id}/status`, { status });
+      await axios.put(`${API_BASE_URL}/api/donations/${id}/status`, { status });
       fetchData(); 
       alert(`Donation ${status}!`);
     } catch (error) {
